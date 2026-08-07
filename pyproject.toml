@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "learnkit"
+version = "0.1.0"
+description = "어떤 파이썬 자료에든 흥미와 '난이도 다이얼'을 끼워 넣는 작은 학습 도구"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["education", "teaching", "python", "accessibility", "udl"]
+authors = [
+    { name = "유수빈" },
+    { name = "정지민", email = "ji2081@dgu.ac.kr" },
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: Korean",
+    "Programming Language :: Python :: 3",
+    "Topic :: Education",
+]
+
+[project.urls]
+Homepage = "https://github.com/ji2081/learnkit"
+Repository = "https://github.com/ji2081/learnkit"
+Issues = "https://github.com/ji2081/learnkit/issues"
+
+[project.optional-dependencies]
+console = ["rich"]
+widget = ["ipywidgets"]
+web = ["streamlit"]
+ai = ["anthropic"]
+speech = ["pyttsx3"]                # 읽어주기(TTS)
+all = ["rich", "ipywidgets", "streamlit", "anthropic", "pyttsx3"]
+
+[tool.setuptools]
+packages = ["learnkit"]
+
+[tool.setuptools.package-data]
+learnkit = ["py.typed"]

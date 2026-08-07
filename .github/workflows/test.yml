@@ -1,0 +1,31 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 코어만 설치해도 동작하는지 (추가 의존성 없이)
+        run: |
+          pip install -e .
+          python -c "from learnkit import Lesson; l = Lesson(title='t', branches={'a': ['x']}); l.as_console('a')"
+
+      - name: 전체 설치 후 테스트
+        run: |
+          pip install -e ".[all]" pytest
+          python -m pytest -q

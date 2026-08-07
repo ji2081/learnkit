@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+.env
+*.egg-info/
+build/
+dist/
+.DS_Store
+
+# as_webapp()가 생성하는 산출물
+lesson_app.py
+
+# 발표 준비용 비공개 파일
+발표활용_노트.md
