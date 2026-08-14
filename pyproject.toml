@@ -41,3 +41,13 @@ packages = ["learnkit"]
 
 [tool.setuptools.package-data]
 learnkit = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.mypy]
+files = ["learnkit"]
+# rich·streamlit 등 선택 의존성에는 타입 스텁이 없다. 그것 때문에 나는 경고는
+# 우리 코드의 타입 문제가 아니므로 무시한다.
+ignore_missing_imports = true
