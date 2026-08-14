@@ -771,3 +771,29 @@ def test_슬라이드23_바꾸기_코드가_실제로_출력한다(capsys):
     out = capsys.readouterr().out
     assert "월 3" in out and "금 1" in out
     assert "숫자를 네 실제" in out
+
+
+# ── 발표 준비 중 찾은 것들 ──────────────────────────────────
+
+def _팩토리얼(n):
+    if n <= 1:
+        return 1
+    작은값 = _팩토리얼(n - 1)
+    return n * 작은값
+
+
+def test_재귀도_따라간다():
+    """상태를 하나로 공유하면 안쪽 호출의 변화가 바깥 기록에 섞인다.
+
+    프레임마다 따로 들고 있어야 한다.
+    """
+    결과, steps = walk(_팩토리얼, 3)
+    assert 결과 == 6
+    assert len(steps) > 3                      # 한 겹만 기록되면 안 된다
+    assert max(s.depth for s in steps) == 2    # 3 → 2 → 1 세 겹
+
+
+def test_재귀_깊이별로_값이_섞이지_않는다():
+    _, steps = walk(_팩토리얼, 3)
+    작은값들 = [(s.depth, s.changed["작은값"]) for s in steps if "작은값" in s.changed]
+    assert 작은값들 == [(1, "1"), (0, "2")]    # 깊은 쪽이 먼저, 각자 제 값

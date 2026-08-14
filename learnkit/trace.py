@@ -70,6 +70,7 @@ class Step:
     changed: dict = field(default_factory=dict)     # 이 줄에서 바뀐 값 (글자로 굳힘)
     returned: Any = None
     is_return: bool = False
+    depth: int = 0                                  # 재귀 깊이 (0이 처음 호출)
 
     def describe(self) -> str:
         """사람이 읽는 한 줄 설명."""
@@ -92,48 +93,52 @@ def walk(func: Callable, *args: Any, max_steps: int = _MAX_STEPS, **kwargs: Any)
 
     filename = target.co_filename
     steps: list[Step] = []
-    prev: dict[str, str] = {}          # 직전 줄까지의 지역 변수 (글자로 굳힌 상태)
-    pending: int | None = None         # 아직 결과를 확정 못 한 줄
+
+    # 상태를 프레임마다 따로 들고 있는다.
+    # 하나로 공유하면 재귀에서 안쪽 호출의 변화가 바깥 호출의 기록에 섞인다.
+    #   {프레임: {"prev": 직전 지역변수, "pending": 아직 확정 못 한 줄, "깊이": n}}
+    상태: dict = {}
 
     def source(lineno: int) -> str:
         return linecache.getline(filename, lineno).strip()
 
     def flush(frame, *, returned: Any = None, is_return: bool = False) -> None:
         """직전 줄이 만들어낸 변화를 확정해 기록한다."""
-        nonlocal prev
-        if pending is None:
+        칸 = 상태.get(frame)
+        if 칸 is None or 칸["pending"] is None:
             return
         if len(steps) >= max_steps:
             # 상한에 닿으면 기록만 멈추는 게 아니라 실행 자체를 끊는다.
             # 안 그러면 무한 루프가 든 build에서 영원히 돌아온다.
             raise _예산소진
         now = _찍기(frame.f_locals)
-        changed = {k: v for k, v in now.items() if prev.get(k) != v}
+        changed = {k: v for k, v in now.items() if 칸["prev"].get(k) != v}
         steps.append(Step(
-            lineno=pending,
-            code=source(pending),
+            lineno=칸["pending"],
+            code=source(칸["pending"]),
             changed=changed,
             returned=returned,
             is_return=is_return,
+            depth=칸["깊이"],
         ))
-        prev = now
+        칸["prev"] = now
 
     def local_tracer(frame, event, arg):
-        nonlocal pending
         if event == "line":
             flush(frame)
-            pending = frame.f_lineno
+            if frame in 상태:
+                상태[frame]["pending"] = frame.f_lineno
         elif event == "return":
             flush(frame, returned=arg, is_return=True)
-            pending = None
+            상태.pop(frame, None)
         return local_tracer
 
     def tracer(frame, event, arg):
-        # 우리가 지목한 함수의 호출에만 붙는다.
-        nonlocal prev, pending
+        # 우리가 지목한 함수의 호출에만 붙는다. 재귀면 여기로 다시 들어온다.
         if event == "call" and frame.f_code is target:
-            prev = _찍기(frame.f_locals)
-            pending = None
+            상태[frame] = {"prev": _찍기(frame.f_locals),
+                           "pending": None,
+                           "깊이": len(상태)}
             return local_tracer
         return None
 
@@ -162,7 +167,8 @@ def format_steps(steps: list[Step], *, number: bool = True) -> list[str]:
         설명 = s.describe()
         # 소스를 읽을 수 없는 경우(대화형 셸, exec 등)엔 줄 번호로 대신한다
         본문 = s.code or f"({s.lineno}번째 줄)"
-        줄 = f"{머리}{본문}"
+        들여 = "│ " * s.depth        # 재귀는 깊이만큼 들여쓴다
+        줄 = f"{머리}{들여}{본문}"
         if 설명:
             줄 = f"{줄}\n{' ' * len(머리)}   {설명}"
         출력.append(줄)
