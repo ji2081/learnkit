@@ -26,7 +26,7 @@ from typing import Any, Callable
 
 __all__ = ["Step", "walk", "format_steps"]
 
-_MAX_STEPS = 500        # 무한 루프에서 메모리가 터지지 않게
+_MAX_STEPS = 500        # 이만큼 기록하면 멈춘다 (무한 루프 대비)
 _MAX_REPR = 60          # 값이 길면 잘라서 보여준다
 
 # repr()로 통째로 문자열을 만든 뒤 자르면, 원소가 30만 개인 리스트도 전부 만들고 버린다.
@@ -44,6 +44,10 @@ def _short(value: Any) -> str:
     except Exception:
         return f"<{type(value).__name__}>"
     return text if len(text) <= _MAX_REPR else text[: _MAX_REPR - 1] + "…"
+
+
+class _예산소진(Exception):
+    """기록 상한에 닿았을 때 실행을 멈추려고 쓰는 내부 신호."""
 
 
 def _찍기(space: dict) -> dict:
@@ -97,8 +101,12 @@ def walk(func: Callable, *args: Any, max_steps: int = _MAX_STEPS, **kwargs: Any)
     def flush(frame, *, returned: Any = None, is_return: bool = False) -> None:
         """직전 줄이 만들어낸 변화를 확정해 기록한다."""
         nonlocal prev
-        if pending is None or len(steps) >= max_steps:
+        if pending is None:
             return
+        if len(steps) >= max_steps:
+            # 상한에 닿으면 기록만 멈추는 게 아니라 실행 자체를 끊는다.
+            # 안 그러면 무한 루프가 든 build에서 영원히 돌아온다.
+            raise _예산소진
         now = _찍기(frame.f_locals)
         changed = {k: v for k, v in now.items() if prev.get(k) != v}
         steps.append(Step(
@@ -131,12 +139,18 @@ def walk(func: Callable, *args: Any, max_steps: int = _MAX_STEPS, **kwargs: Any)
 
     이전 = sys.gettrace()
     sys.settrace(tracer)
+    잘림 = False
     try:
         result = func(*args, **kwargs)
+    except _예산소진:
+        result, 잘림 = None, True
     finally:
         sys.settrace(이전)      # 원래 상태로. 디버거를 쓰고 있었을 수도 있다.
 
     linecache.checkcache(filename)
+    if 잘림:
+        steps.append(Step(lineno=0, code=f"… {max_steps}줄에서 멈췄습니다",
+                          changed={"": "무한 루프인지 확인해 보세요"}))
     return result, steps
 
 
