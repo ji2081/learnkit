@@ -165,13 +165,20 @@ class Lesson:
                 data: list | None = None, trace: bool = False) -> View:
         """지금 상태를 렌더러가 그릴 수 있는 값(View)으로 굳힌다."""
         branch = branch or next(iter(self.branches), None)
-        result, error = self.run(branch, data)
         steps = None
-        if trace and error is None:
+        if trace:
+            # 추적 실행이 결과도 같이 돌려주므로 build를 한 번만 부른다.
+            # 두 번 부르면 파일을 쓰거나 카운터를 올리는 build에서 두 번 일어난다.
             try:
-                _, steps = self.walk(branch, data)
+                result, steps = self.walk(branch, data)
+                error = None
             except TypeError:
                 steps = None        # lambda 등 따라갈 수 없는 build
+                result, error = self.run(branch, data)
+            except Exception as e:
+                result, error = None, explain(type(e), e, e.__traceback__)
+        else:
+            result, error = self.run(branch, data)
         return View(
             steps=steps,
             title=self.title,
