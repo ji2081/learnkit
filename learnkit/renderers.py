@@ -19,6 +19,9 @@ Renderer는 상속이 아니라 `Protocol`이다. learnkit을 임포트하지 �
 
 from __future__ import annotations
 
+import ast
+import html
+import math
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -60,8 +63,14 @@ def bar(line: Any, cap: int = 40) -> str:
     """
     s = str(line)
     찾은 = _숫자.findall(s)
-    n = round(float(찾은[-1])) if 찾은 else disp_width(s)
-    return "█" * min(max(n, 0), cap)
+    if not 찾은:
+        return "█" * min(disp_width(s), cap)
+    # 자릿수가 아주 많으면 float가 inf가 되어 round()가 터진다.
+    # 학습자가 숫자를 길게 누르기만 해도 나는 일이라 여기서 막는다.
+    값 = float(찾은[-1])
+    if not math.isfinite(값):
+        return "█" * cap
+    return "█" * min(max(round(값), 0), cap)
 
 
 @dataclass(frozen=True)
@@ -263,17 +272,20 @@ class WidgetRenderer:
                         f"<div style='{style}'>tutor<br>원인: {err.get('원인','')}"
                         f"<br>힌트: {err.get('힌트','')}</div>"))
                     return
+                # 학습자 데이터에 <b> 같은 게 들어와도 태그로 해석되면 안 된다
                 rows = "".join(
-                    f"<div>{t} &nbsp; <span style='color:green'>{b}</span></div>"
+                    f"<div>{html.escape(t)} &nbsp; "
+                    f"<span style='color:green'>{b}</span></div>"
                     for t, b in cur.rows())
                 extra = ""
                 if dial.value == "바꾸기" and cur.hint:
-                    extra = f"<p style='color:#0a7'>힌트: {cur.hint}</p>"
+                    extra = f"<p style='color:#0a7'>힌트: {html.escape(cur.hint)}</p>"
                 elif dial.value == "만들기":
                     if cur.source:
-                        extra += f"<pre>{cur.source}</pre>"
+                        extra += f"<pre>{html.escape(cur.source)}</pre>"
                     if cur.challenge:
-                        extra += f"<p style='color:#a0a'>도전: {cur.challenge}</p>"
+                        extra += (f"<p style='color:#a0a'>도전: "
+                                  f"{html.escape(cur.challenge)}</p>")
                 display(HTML(f"<div style='{style}'>{rows}{extra}</div>"))
 
         for ctrl in (branch, dial, data):
@@ -301,7 +313,9 @@ class MarkdownRenderer:
             return "\n".join(줄)
 
         줄 += ["| 항목 | 그래프 |", "|---|---|"]
-        줄 += [f"| {글} | `{막대}` |" for 글, 막대 in view.rows()]
+        # 값에 | 가 들어가면 표가 깨진다 (f-string 안에서는 역슬래시를 못 쓴다)
+        막대기 = "\\|"
+        줄 += [f"| {글.replace('|', 막대기)} | `{막대}` |" for 글, 막대 in view.rows()]
 
         if view.steps:
             from .trace import format_steps
@@ -340,10 +354,12 @@ class BlocksRenderer:
         칸막이 = "├" + "─" * 폭 + "┤"
         아래 = "└" + "─" * 폭 + "┘"
 
+        폭 = max(폭, 12)      # 너무 좁으면 자르기가 끝나지 않는다
+
         def 줄(글: str) -> str:
             # 박스 밖으로 삐져나가면 블록으로 안 보인다. 넘치면 자른다.
             글 = " " + 글
-            while disp_width(글) > 폭:
+            while disp_width(글) > 폭 and len(글) > 1:
                 글 = 글[:-2] + "…"
             return "│" + pad(글, 폭) + "│"
 
@@ -390,17 +406,31 @@ class WebappRenderer:
                 "webapp 렌더러는 이름 있는 함수(def)만 지원합니다. lambda 대신 def를 쓰세요."
             )
         code = self._code(view)
+        # 돌아가지 않는 파일을 조용히 써놓지 않는다.
+        # branches에 임의 객체가 들어가면 repr이 코드가 아니게 된다.
+        try:
+            ast.parse(code)
+        except SyntaxError as e:
+            raise ValueError(
+                "웹앱 코드를 만들지 못했습니다. branches의 값이 글로 옮길 수 있는 "
+                f"것인지 확인해 주세요(숫자·문자열·리스트 등). — {e.msg}"
+            ) from None
         with open(path, "w", encoding="utf-8") as f:
             f.write(code)
         return path
 
     @staticmethod
     def _code(view: View) -> str:
-        import inspect
-        bar_src = inspect.getsource(bar)
+        # bar()를 소스로 심지 않고 자족적인 형태로 다시 쓴다.
+        # getsource로 퍼오면 그 함수가 기대는 것들(typing.Any, 모듈 레벨 정규식,
+        # disp_width…)이 같이 안 따라와서 생성물이 실행 즉시 죽는다.
         return f'''# 자동 생성됨 — learnkit webapp 렌더러
 # learnkit이 있으면 에러 튜터까지, 없으면 그대로 혼자 돌아갑니다.
 #   streamlit run {"lesson_app.py"}
+import math
+import re
+import unicodedata
+
 import streamlit as st
 
 BRANCHES = {view.branches!r}
@@ -409,7 +439,25 @@ CHALLENGE = {view.challenge!r}
 SOURCE = {(view.source or "")!r}
 {view.source or ""}
 
-{bar_src}
+_숫자 = re.compile(r"-?\\d+(?:\\.\\d+)?")
+
+
+def _폭(text):
+    """한글은 화면에서 2칸을 먹는다. (learnkit.renderers.disp_width 와 같은 규칙)"""
+    return sum(2 if unicodedata.east_asian_width(ch) in "WF" else 1 for ch in text)
+
+
+def bar(line, cap=40):
+    """줄에 담긴 숫자만큼 막대를 그린다. (learnkit.renderers.bar 와 같은 규칙)"""
+    s = str(line)
+    찾은 = _숫자.findall(s)
+    if not 찾은:
+        return "█" * min(_폭(s), cap)
+    값 = float(찾은[-1])
+    if not math.isfinite(값):
+        return "█" * cap
+    return "█" * min(max(round(값), 0), cap)
+
 
 st.set_page_config(page_title={view.title!r})
 st.markdown(
