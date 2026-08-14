@@ -1,11 +1,16 @@
 """
 python -m learnkit — 설치하고 바로 확인해보는 입구
 
-    pip install learnkit
     python -m learnkit              # 세 수준이 어떻게 다른지
     python -m learnkit tutor        # 에러 튜터
     python -m learnkit trace        # 한 줄씩 따라가기
+    python -m learnkit ai           # AI가 켜져 있는지
     python -m learnkit new 내수업.py  # 내 수업 파일 뼈대 만들기
+
+설치는 저장소에서 받으세요. PyPI의 `learnkit` 은 이름이 같은 다른 패키지입니다.
+
+    git clone https://github.com/ji2081/learnkit.git
+    cd learnkit && pip install -e ".[all]"
 
 README를 읽기 전에 '무엇인지' 먼저 보이는 게 낫다고 생각해서 뒀다.
 """

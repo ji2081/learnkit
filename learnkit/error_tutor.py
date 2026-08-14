@@ -116,8 +116,9 @@ def _names_in_scope(frame) -> list[str]:
 def _did_you_mean(exc_type, exc, tb) -> str | None:
     """'혹시 이걸 쓰려던 건 아닌가요?' — difflib으로 가장 비슷한 이름을 찾는다.
 
-    파이썬 3.12부터는 인터프리터가 비슷한 걸 알려주지만, 영어이고
-    3.9~3.11에서는 아예 없다. 여기서는 한국어로, 더 낮은 버전에서도.
+    파이썬 3.10부터는 인터프리터가 비슷한 걸 알려준다. 다만 영어이고,
+    sys.excepthook을 가로채면 그 제안이 사라진다 — 우리가 하는 일이
+    바로 가로채는 것이다. 그래서 한국어로 다시 만들어 붙였다. 3.9에는 아예 없다.
     """
     name = exc_type.__name__
     last = _last_frame(tb)
