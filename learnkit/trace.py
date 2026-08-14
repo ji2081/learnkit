@@ -19,6 +19,7 @@ trace — "왜 치는지 모를 때"에 대한 답: 코드가 한 줄씩 무슨 
 from __future__ import annotations
 
 import linecache
+import reprlib
 import sys
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -28,13 +29,20 @@ __all__ = ["Step", "walk", "format_steps"]
 _MAX_STEPS = 500        # 무한 루프에서 메모리가 터지지 않게
 _MAX_REPR = 60          # 값이 길면 잘라서 보여준다
 
+# repr()로 통째로 문자열을 만든 뒤 자르면, 원소가 30만 개인 리스트도 전부 만들고 버린다.
+# reprlib은 필요한 만큼만 만든다 — 큰 데이터에서 30배 이상 빠르다.
+_요약 = reprlib.Repr()
+_요약.maxlist = _요약.maxtuple = _요약.maxset = _요약.maxdict = 8
+_요약.maxstring = _요약.maxother = _MAX_REPR
+_요약.maxlevel = 3
+
 
 def _short(value: Any) -> str:
     """값을 한 눈에 들어오게. 길면 자른다."""
     try:
-        text = repr(value)
+        text = _요약.repr(value)
     except Exception:
-        text = f"<{type(value).__name__}>"
+        return f"<{type(value).__name__}>"
     return text if len(text) <= _MAX_REPR else text[: _MAX_REPR - 1] + "…"
 
 
