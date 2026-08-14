@@ -283,6 +283,32 @@ def test_속성_오타도_추천한다():
     assert "upper" in info["힌트"]
 
 
+def test_속성_오타_추천은_3_9에서도_된다():
+    """`AttributeError.obj`는 파이썬 3.10에서 생겼다.
+
+    3.9에는 없어서 후보 목록이 비었고, 추천이 조용히 사라졌다.
+    CI의 3.9 작업에서만 이 테스트가 깨져 알게 됐다.
+    """
+    try:
+        "안녕".uper()
+    except AttributeError as e:
+        try:
+            del e.obj               # 3.9 인 척한다
+        except AttributeError:
+            pass                    # 이미 3.9 라면 지울 것도 없다
+        info = explain(type(e), e, e.__traceback__)
+    assert "upper" in info["힌트"]
+
+
+def test_모듈_속성_오타도_추천한다():
+    import math
+    try:
+        math.sqrtt(4)
+    except AttributeError as e:
+        info = explain(type(e), e, e.__traceback__)
+    assert "sqrt" in info["힌트"]
+
+
 def test_register_rule_로_설명을_추가할_수_있다():
     register_rule("_TestError", "테스트용 원인", "테스트용 힌트")
     assert _RULES["_TestError"] == ("테스트용 원인", "테스트용 힌트")

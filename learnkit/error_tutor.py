@@ -113,6 +113,33 @@ def _names_in_scope(frame) -> list[str]:
     return seen
 
 
+def _attr_candidates(msg: str, frame) -> list[str]:
+    """AttributeError 메시지에 남은 이름으로 대상 객체를 되찾아 속성 목록을 만든다.
+
+    파이썬 3.10부터는 예외 자체가 `obj`를 들고 있어서 이 일이 필요 없다.
+    3.9에서는 메시지밖에 단서가 없다.
+
+        "'str' object has no attribute 'uper'"      →  str
+        "module 'math' has no attribute 'sqrtt'"    →  math
+    """
+    이름 = None
+    m = re.search(r"'([^']+)' object has no attribute", msg)
+    if m:
+        이름 = m.group(1)
+    else:
+        m = re.search(r"module '([^']+)' has no attribute", msg)
+        이름 = m.group(1).split(".")[-1] if m else None
+    if not 이름:
+        return []
+
+    대상 = getattr(builtins, 이름, None)
+    if 대상 is None and frame is not None:
+        대상 = frame.f_locals.get(이름) or frame.f_globals.get(이름)
+    if 대상 is None:
+        return []
+    return [a for a in dir(대상) if not a.startswith("_")]
+
+
 def _did_you_mean(exc_type, exc, tb) -> str | None:
     """'혹시 이걸 쓰려던 건 아닌가요?' — difflib으로 가장 비슷한 이름을 찾는다.
 
@@ -131,11 +158,16 @@ def _did_you_mean(exc_type, exc, tb) -> str | None:
             target = m.group(1) if m else None
         candidates = _names_in_scope(frame)
     elif name == "AttributeError":
-        obj = getattr(exc, "obj", None)
+        obj = getattr(exc, "obj", None)      # 3.10+ 에는 exc.obj 가 있다
         if not target:
             m = re.search(r"has no attribute '([^']+)'", str(exc))
             target = m.group(1) if m else None
-        candidates = [a for a in dir(obj) if not a.startswith("_")] if obj is not None else []
+        if obj is not None:
+            candidates = [a for a in dir(obj) if not a.startswith("_")]
+        else:
+            # 3.9에는 exc.obj 가 없다. 메시지에 남은 타입 이름으로 되찾는다.
+            #     "'str' object has no attribute 'uper'"  →  str
+            candidates = _attr_candidates(str(exc), frame)
     else:
         return None
 
