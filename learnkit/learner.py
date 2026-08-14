@@ -68,13 +68,18 @@ class Learner:
 
     @classmethod
     def 바꿔보기(cls, name: str = "", **kwargs: Any) -> "Learner":
-        """데이터를 자기 것으로 바꿔보며. 힌트가 붙는다."""
-        return replace(cls(name, dial="바꾸기"), **kwargs)
+        """데이터를 자기 것으로 바꿔보며. 힌트가 붙는다.
+
+        접근성은 그대로 켜둔다 — 단계가 올라간다고 큰 글씨가 필요 없어지지 않는다.
+        """
+        return replace(cls(name, dial="바꾸기", big=True, high_contrast=True), **kwargs)
 
     @classmethod
     def 만들어보기(cls, name: str = "", **kwargs: Any) -> "Learner":
         """코드를 열고 도전 과제로. 여기서부터는 개발자의 세계다."""
-        return replace(cls(name, dial="만들기", trace=True), **kwargs)
+        return replace(
+            cls(name, dial="만들기", big=True, high_contrast=True, trace=True), **kwargs
+        )
 
     # ── 조정 ────────────────────────────────────────────────
 

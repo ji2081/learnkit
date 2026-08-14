@@ -39,9 +39,11 @@ class Lesson:
     dials: tuple = ("보기", "바꾸기", "만들기")
     hint: str = ""
     challenge: str = ""
-    big: bool = False
-    high_contrast: bool = False
-    speak: bool = False
+    # 접근성은 나중에 붙이는 옵션이 아니라 기본값이다.
+    # 나중에 붙이려고 하면 대개 안 붙이게 된다.
+    big: bool = True
+    high_contrast: bool = True
+    speak: bool = False          # 소리는 교실 상황을 타므로 기본은 끔
 
     # ── 계산 ────────────────────────────────────────────────
 
