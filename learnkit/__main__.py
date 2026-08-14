@@ -19,8 +19,17 @@ from . import Learner, Lesson, __version__, tutor
 
 
 def 공부기록(hours):
+    """이번 주 공부 시간을 요일과 함께 정리한다.
+
+    컴프리헨션 대신 for 문으로 쓴 이유 — '한 줄씩 따라가기'가 반복을 보여주려면
+    반복이 밖으로 나와 있어야 한다. 컴프리헨션은 파이썬 3.11 이하에서
+    별도 코드 객체라 안쪽이 추적되지 않는다.
+    """
     days = ["월", "화", "수", "목", "금", "토", "일"]
-    return [f"{days[i % 7]} {h}" for i, h in enumerate(hours)]
+    결과 = []
+    for i, h in enumerate(hours):
+        결과.append(f"{days[i % 7]} {h}시간")
+    return 결과
 
 
 def _예제() -> Lesson:

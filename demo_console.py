@@ -4,7 +4,10 @@ from learnkit import Lesson
 
 def 공부기록(hours):
     days = ["월", "화", "수", "목", "금", "토", "일"]
-    return [f"{days[i % 7]} {h}" for i, h in enumerate(hours)]
+    결과 = []
+    for i, h in enumerate(hours):
+        결과.append(f"{days[i % 7]} {h}시간")
+    return 결과
 
 
 lesson = Lesson(
