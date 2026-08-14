@@ -25,9 +25,14 @@ lesson.render_for(Learner.만들어보기())      # 코드를 열고 도전 과�
 | ③ 결과가 안 보일 때 | **한 정의, 여러 화면** — 콘솔·주피터·웹앱 | `Protocol` 렌더러 · 코드 생성 |
 | ④ 에러가 무서울 때 | **에러 튜터** — 원인·위치·코드·힌트 네 칸 | `sys.excepthook` · `difflib` |
 
+[![test](https://github.com/ji2081/learnkit/actions/workflows/test.yml/badge.svg)](https://github.com/ji2081/learnkit/actions/workflows/test.yml)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)
 ![Status](https://img.shields.io/badge/status-early%20development-orange.svg)
+
+<p align="center">
+  <img src="docs/assets/demo_trace.gif" width="640" alt="한 줄씩 따라가기">
+</p>
 
 ## 30초 만에 확인하기
 
@@ -117,6 +122,8 @@ for s in steps:
 
 ## ② 난이도 다이얼
 
+<img src="docs/assets/demo_change.gif" width="620" alt="데이터를 바꾸면 그 자리에서 다시 그려진다">
+
 같은 정의가 학습자에 따라 세 단계로 늘어납니다. 하나의 자료로 처음 배우는 사람과
 더 깊이 가려는 사람을 함께 품기 위한 설계입니다.
 
@@ -126,7 +133,11 @@ for s in steps:
 | 바꾸기 | 데이터를 자신의 것으로 수정 | `hint` 도움말 |
 | 만들기 | `build` 함수를 직접 열어 수정 | 코드 공개 + `challenge` 도전 과제 |
 
+<img src="docs/assets/demo_challenge.gif" width="620" alt="도전 과제를 고치면 화면이 바뀐다">
+
 ## ③ 한 정의, 여러 화면
+
+<img src="docs/assets/demo_screens.gif" width="680" alt="renderer만 바꾸면 터미널·주피터·웹앱">
 
 `Lesson`은 화면을 모릅니다. 화면 그리는 일은 렌더러가 맡고, 둘 사이는 `View`라는
 값 하나로만 이어집니다. 렌더러는 상속이 아니라 **Protocol**이라서, 아래 두 가지만
@@ -183,6 +194,8 @@ lesson.render("blocks", trace=True)
 생성된 파일은 learnkit 없이도 동작해서, 수업 자료를 파일 하나로 배포할 수 있습니다.
 
 ## ④ 에러 튜터
+
+<img src="docs/assets/demo_typo.gif" width="620" alt="오타를 한국어로 짚어준다">
 
 ```python
 from learnkit import tutor
@@ -258,6 +271,8 @@ lesson.review(학생이_고친_코드)   # "잘한 점 하나 + 더 해볼 것 �
 
 ## 접근성
 
+<img src="docs/assets/demo_access.gif" width="560" alt="큰 글씨·고대비를 켜면 달라지는 화면">
+
 다중 표현(글 + 막대), 고대비, 큰 글씨, 읽어주기(TTS)가 렌더러 공통으로 적용됩니다.
 **스크린리더 ARIA와 키보드 내비게이션은 아직 못 했습니다** — 함께 해주실 분을 찾습니다.
 
@@ -292,6 +307,19 @@ python -m pytest
 
 [CONTRIBUTING.md](CONTRIBUTING.md)에 지금 열려 있는 과제를 적어뒀습니다.
 이슈와 PR을 환영합니다.
+
+## 발표
+
+PyCon Korea 2026에서 이 도구를 만들며 겪은 것들을 이야기합니다.
+
+**「블록코딩부터 AI까지 가르치며 만든 파이썬 학습 도구」** · 유수빈 · 정지민
+
+`sys.settrace`의 추적기가 왜 두 겹이어야 하는지, `f_locals`가 살아 있는 객체를
+담고 있어 중간 값 대신 최종 값을 보여주고 있었던 일, `sys.excepthook`을 가로채면
+파이썬이 해주던 "Did you mean" 제안이 함께 사라진다는 것 같은 이야기입니다.
+
+> README의 화면들은 `tools/make_demo_gifs.py`가 프레임을 직접 그려 만듭니다.
+> 화면 녹화가 아니라서 한글 폭이 어긋나지 않고, 다시 만들면 항상 같은 결과가 나옵니다.
 
 ## 라이선스
 
