@@ -54,7 +54,10 @@ _RULES: dict[str, tuple[str, str]] = {
 }
 
 _MAX_MSG = 300      # LLM에 보내는 메시지 길이 제한
-_USE_LLM = True     # install(use_llm=False)로 끔. 환경변수는 건드리지 않는다.
+# 기본은 끔. 켜면 학습자가 쓴 코드 줄이 외부 API로 나간다.
+# 미성년 학습자의 코드일 수 있으므로, 켜는 것은 명시적 선택이어야 한다.
+#     install(use_llm=True)  또는  with tutor(use_llm=True):
+_USE_LLM = False
 _PREV_HOOK = None   # uninstall()로 되돌리기 위한 원래 훅
 _INSTALLED = False
 
@@ -253,10 +256,12 @@ def _ipython():
         return None
 
 
-def install(use_llm: bool = True) -> bool:
+def install(use_llm: bool = False) -> bool:
     """튜터를 켠다. 주피터면 셀 에러를, 일반 스크립트면 종료 에러를 가로챈다.
 
-    use_llm=False 면 규칙 기반으로 고정한다(발표 라이브 데모에 안전).
+    기본은 규칙 기반이다. `use_llm=True`로 켜면 더 자세히 설명해 주지만,
+    **학습자가 쓴 코드 줄이 외부 API로 전송된다.** 교실에서 쓸 때는
+    그 사실을 알고 켜야 해서 기본값을 껐다.
     """
     global _USE_LLM, _PREV_HOOK, _INSTALLED
     _USE_LLM = use_llm
@@ -297,7 +302,7 @@ def uninstall() -> bool:
 
 
 @contextmanager
-def tutor(use_llm: bool = True):
+def tutor(use_llm: bool = False):
     """이 블록 안에서만 튜터를 켠다.
 
         with tutor():
