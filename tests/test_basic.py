@@ -797,3 +797,13 @@ def test_재귀_깊이별로_값이_섞이지_않는다():
     _, steps = walk(_팩토리얼, 3)
     작은값들 = [(s.depth, s.changed["작은값"]) for s in steps if "작은값" in s.changed]
     assert 작은값들 == [(1, "1"), (0, "2")]    # 깊은 쪽이 먼저, 각자 제 값
+
+
+def test_제너레이터_build도_결과가_보인다():
+    """`<generator object ...>` 한 줄만 찍히면 결과가 안 보이는 것과 같다."""
+    def 세어보기(xs):
+        for i, x in enumerate(xs, 1):
+            yield f"{i}번째: {x}"
+
+    view = Lesson(title="t", build=세어보기).to_view(data=["가", "나"])
+    assert view.result == ["1번째: 가", "2번째: 나"]

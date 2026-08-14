@@ -26,6 +26,18 @@ from .learner import Learner
 from .renderers import View
 
 
+def _펼침(결과: Any) -> Any:
+    """build가 제너레이터를 돌려주면 리스트로 펼친다.
+
+    `yield`를 쓰는 건 학습자가 충분히 할 수 있는 일인데, 그대로 두면 화면에
+    `<generator object ...>` 한 줄만 찍힌다. 결과가 안 보이는 게 이 도구가
+    없애려던 문제라, 여기서 펼쳐 준다. 무한 제너레이터는 막지 못한다.
+    """
+    if hasattr(결과, "__next__") and not isinstance(결과, (list, tuple, str)):
+        return list(결과)
+    return 결과
+
+
 def _default_build(items: list) -> list:
     """공통 뼈대 기본값: 리스트를 번호 매겨 보여주기 (반복 개념)."""
     return [f"{i + 1}. {x}" for i, x in enumerate(items)]
@@ -57,7 +69,7 @@ class Lesson:
         """
         items = data if data is not None else self.branches.get(branch, [])
         try:
-            return self.build(list(items)), None
+            return _펼침(self.build(list(items))), None
         except Exception as e:
             return None, explain(type(e), e, e.__traceback__)
 
