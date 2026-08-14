@@ -188,6 +188,41 @@ def test_as_webapp_유효한_코드_생성(tmp_path):
     assert "learnkit" not in 소스.split("\n")[2:][0]   # 생성물은 혼자 돌아간다
 
 
+def test_생성된_웹앱이_실제로_실행된다(tmp_path):
+    """문법만 맞으면 안 된다. streamlit을 가짜로 끼워 끝까지 돌려본다.
+
+    getsource로 함수를 퍼오면 그 함수가 기대는 것들(typing.Any, 모듈 레벨
+    정규식 등)이 같이 안 따라와서 생성물이 실행 즉시 죽는 버그가 있었다.
+    ast.parse만 하는 테스트로는 못 잡는다.
+    """
+    import subprocess
+    import sys as _sys
+    import textwrap
+
+    lesson = Lesson(title="t", build=번호매기기, branches={"a": ["사과", "배"]},
+                    hint="힌트", challenge="도전")
+    앱 = tmp_path / "app.py"
+    lesson.as_webapp(str(앱))
+
+    러너 = tmp_path / "run.py"
+    러너.write_text(textwrap.dedent(f'''
+        import sys, types
+        st = types.ModuleType("streamlit")
+        st.set_page_config = st.markdown = st.title = lambda *a, **k: None
+        st.write = st.info = st.code = st.warning = st.error = lambda *a, **k: None
+        st.selectbox = lambda label, opts: list(opts)[0]
+        st.radio = lambda label, opts, **k: opts[0]
+        st.text_input = lambda label, default: default
+        sys.modules["streamlit"] = st
+        exec(open(r"{앱}", encoding="utf-8").read())
+        print("OK")
+    '''), encoding="utf-8")
+
+    결과 = subprocess.run([_sys.executable, str(러너)], capture_output=True, text=True)
+    assert 결과.returncode == 0, 결과.stderr
+    assert "OK" in 결과.stdout
+
+
 def test_생성된_웹앱이_에러튜터를_붙인다(tmp_path):
     """세 화면 모두에서 튜터가 받아줘야 '한 정의'라는 말이 성립한다."""
     lesson = Lesson(title="t", build=번호매기기, branches={"a": ["x"]})
@@ -298,10 +333,29 @@ def test_한_정의가_수준마다_다른_화면을_낸다():
     assert v1.branch == "인문" and v2.branch == "숫자"
     assert v1.result == ["1. 책", "2. 영화"]
     assert v2.result == ["1. 용돈 1000"]
-    assert v1.big and v1.high_contrast          # 접근성이 이 수준에만
-    assert not v2.big
     assert v1.steps and v2.steps                # 둘 다 '따라가기'가 켜진 값
     assert v2.source and not v1.source is None  # '만들기'는 소스를 본다
+
+
+def test_접근성은_모든_수준에서_켜져_있다():
+    """단계가 올라간다고 큰 글씨가 필요 없어지지 않는다.
+
+    예전에는 '보기부터' 프리셋에서만 켜져서, 특수학급 학생이 '바꾸기'로
+    넘어가는 순간 큰 글씨와 고대비가 사라졌다.
+    """
+    lesson = Lesson(title="t", build=번호매기기, branches={"a": ["x"]})
+    assert lesson.big and lesson.high_contrast          # 정의의 기본값부터 켜짐
+
+    for 프리셋 in (Learner.보기부터(), Learner.바꿔보기(), Learner.만들어보기()):
+        v = lesson.to_view_for(프리셋)
+        assert v.big, f"{프리셋.dial} 단계에서 큰 글씨가 꺼졌다"
+        assert v.high_contrast, f"{프리셋.dial} 단계에서 고대비가 꺼졌다"
+
+
+def test_필요하면_끌_수도_있다():
+    lesson = Lesson(title="t", build=번호매기기, branches={"a": ["x"]})
+    v = lesson.to_view_for(Learner("끔", big=False))
+    assert not v.big and v.high_contrast     # 지정한 것만 꺼진다
 
 
 def test_비워둔_항목은_정의의_기본값을_따른다():
@@ -544,6 +598,122 @@ def test_format_steps_는_사람이_읽을_수_있게():
     _, steps = walk(계단, [1])
     줄 = format_steps(steps)
     assert 줄 and any("총합" in l for l in 줄)
+
+
+# ── 학습자가 이상한 걸 넣어도 안 깨져야 한다 ──────────────────
+
+def test_큰_입력에서도_빠르다():
+    """repr()로 통째로 만들어 자르면 30만짜리 리스트를 매 줄 만든다.
+
+    실제로 7.6초가 걸렸다. reprlib은 필요한 만큼만 만든다.
+    """
+    import time
+
+    def 합(xs):
+        총 = 0
+        for x in xs:
+            총 += x
+        return [총]
+
+    시작 = time.perf_counter()
+    walk(합, list(range(200_000)))
+    걸린시간 = time.perf_counter() - 시작
+    assert 걸린시간 < 2.0, f"{걸린시간:.1f}초 — 너무 느립니다"
+
+
+def test_무한루프가_멈춘다():
+    """상한은 기록만 막는 게 아니라 실행도 끊어야 한다."""
+    def 무한(xs):
+        n = 0
+        while True:
+            n += 1
+        return [n]
+
+    결과, steps = walk(무한, [1], max_steps=50)
+    assert 결과 is None
+    assert len(steps) <= 51
+    assert "멈췄습니다" in steps[-1].code
+
+
+@pytest.mark.parametrize("값", [
+    "점수 " + "1" * 400,      # float가 inf가 되는 길이
+    "값 -999999999999",
+    "",
+    "이모지 🙂🙂",
+])
+def test_bar가_이상한_값에도_안_터진다(값):
+    막대 = bar(값)
+    assert isinstance(막대, str) and len(막대) <= 40
+
+
+def test_웹앱은_돌아가지_않는_파일을_쓰지_않는다(tmp_path):
+    """branches에 임의 객체가 있으면 repr이 코드가 아니게 된다."""
+    class 학생:
+        def __init__(self, 이름):
+            self.이름 = 이름
+
+    lesson = Lesson(title="t", build=번호매기기, branches={"a": [학생("민수")]})
+    with pytest.raises(ValueError, match="웹앱 코드를 만들지 못했습니다"):
+        lesson.as_webapp(str(tmp_path / "app.py"))
+
+
+# ── 학습자 코드가 동의 없이 밖으로 나가면 안 된다 ──────────────
+
+def test_LLM은_기본으로_꺼져_있다():
+    """켜면 학습자가 쓴 코드 줄이 외부 API로 전송된다.
+
+    미성년 학습자의 코드일 수 있으므로 켜는 것은 명시적 선택이어야 한다.
+    """
+    import inspect as _inspect
+
+    from learnkit import error_tutor as et
+
+    assert et._USE_LLM is False
+    assert _inspect.signature(et.install).parameters["use_llm"].default is False
+    assert _inspect.signature(et.tutor).parameters["use_llm"].default is False
+
+
+def test_키가_있어도_켜지_않으면_안_부른다(monkeypatch):
+    from learnkit import ai, error_tutor as et
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-가짜")
+    불렀나 = []
+    monkeypatch.setattr(ai, "ask", lambda *a, **k: 불렀나.append(1))
+
+    with tutor():                       # 기본값 그대로
+        pass
+    try:
+        raise NameError("name '과일' is not defined")
+    except NameError as e:
+        info = et.explain(type(e), e, e.__traceback__)
+    assert not 불렀나
+    assert info["_출처"] == "규칙"
+
+
+# ── 화면에 넣은 값이 그대로 태그가 되면 안 된다 ────────────────
+
+def test_마크다운_표가_깨지지_않는다():
+    lesson = Lesson(title="t", build=lambda x: ["사과|배"], branches={"a": [1]})
+    md = lesson.render("markdown", branch="a")
+    assert r"사과\|배" in md
+
+
+def test_blocks가_좁은_폭에서도_끝난다():
+    lesson = Lesson(title="t", build=번호매기기, branches={"a": ["가나다라마바사"]})
+    글 = lesson.render("blocks", branch="a", trace=True, width=0)
+    assert 글.count("\n") < 40      # 무한 루프면 여기 못 온다
+
+
+def test_trace를_켜도_build는_한_번만_돈다():
+    """부작용이 있는 build면 두 번 실행되는 게 문제가 된다."""
+    센 = []
+
+    def 세는함수(items):
+        센.append(1)
+        return [str(x) for x in items]
+
+    lesson = Lesson(title="t", build=세는함수, branches={"a": [1, 2]})
+    lesson.to_view("a", trace=True)
+    assert len(센) == 1, f"{len(센)}번 실행됐습니다"
 
 
 # ── 발표 슬라이드에 실린 코드가 실제로 동작하는지 ────────────────
