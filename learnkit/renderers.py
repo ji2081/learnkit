@@ -103,9 +103,21 @@ class View:
     def bar(self, line: Any) -> str:
         return bar(line)
 
+    _MAX_LINE = 200          # 한 줄이 이보다 길면 잘라서 보여준다
+
     def rows(self) -> list[tuple[str, str]]:
-        """(글, 막대) 쌍. 다중 표현의 최소 단위."""
-        return [(str(line), self.bar(line)) for line in (self.result or [])]
+        """(글, 막대) 쌍. 다중 표현의 최소 단위.
+
+        한 줄이 지나치게 길면 잘라 준다. 학습자가 `"가" * 5000` 같은 걸 만드는 건
+        드문 일이 아닌데, 그대로 뿌리면 화면이 그걸로 덮여 다음 단계가 안 보인다.
+        """
+        출력 = []
+        for line in (self.result or []):
+            글 = str(line)
+            if len(글) > self._MAX_LINE:
+                글 = 글[: self._MAX_LINE] + f"… (총 {len(글)}자)"
+            출력.append((글, self.bar(line)))
+        return 출력
 
 
 @runtime_checkable

@@ -807,3 +807,14 @@ def test_제너레이터_build도_결과가_보인다():
 
     view = Lesson(title="t", build=세어보기).to_view(data=["가", "나"])
     assert view.result == ["1번째: 가", "2번째: 나"]
+
+
+def test_아주_긴_줄은_잘라서_보여준다():
+    """학습자가 '가' * 5000 을 만드는 건 드문 일이 아니다.
+
+    그대로 뿌리면 화면이 덮여서 다음 단계가 안 보인다.
+    """
+    view = Lesson(title="t", build=lambda xs: ["가" * 5000]).to_view(data=[1])
+    글, _ = view.rows()[0]
+    assert len(글) < 300
+    assert "총 5000자" in 글
