@@ -28,6 +28,9 @@ __all__ = ["available", "ask", "MODEL"]
 
 MODEL = "claude-3-5-haiku-latest"       # 빠르고 싸다. 수업 중에 기다리면 안 되니까.
 _MAX_TOKENS = 500
+# 기본 타임아웃(10분)을 그대로 두면 네트워크가 막혔을 때 수업이 10분 멈춘다.
+# 에러 설명 하나 받자고 기다릴 시간이 아니다.
+_TIMEOUT = 8.0
 
 _TUTOR = (
     "너는 파이썬 입문자를 돕는 다정한 한국어 튜터다.\n"
@@ -58,7 +61,7 @@ def ask(prompt: str, *, as_json: bool = False, system: str = _TUTOR,
         return None
     try:
         import anthropic
-        client = anthropic.Anthropic()
+        client = anthropic.Anthropic(timeout=_TIMEOUT, max_retries=1)
         r = client.messages.create(
             model=MODEL,
             max_tokens=max_tokens,
